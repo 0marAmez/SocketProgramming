@@ -1,0 +1,92 @@
+=============================================================================================================
+General Description:
+    This program was written with the purpose of putting in practice socket programming concepts from the CSE156
+    class. This program aims to work like the wget or curl command, and to perform this task the C socket.h library
+    and concepts from UNIX Network programming book.
+=============================================================================================================
+Design:
+    As mentioned in the paragraph from above the program uses some basic C libraries to perfom its task. The 
+    program was design to take command line arguments. The first argument would be the hostname of the website,
+    such like wwww.example.com. The second argument would be the IPv4 address of the website with an optional port
+    option, and the path of content. In addition, an additional argument can be add to only request the HTTP header.
+    We will discuss the usage in detail in the next section.
+    Consider the next line as an example:
+
+        ./myweb www.example.com 93.184.216.34:80/index.html
+
+    Once these arguments are obtain then, the first thing the program will is to create all the variables that will 
+    be required for this taks. Then, once that is done it proceeds to parse the second argument that contains the IP,
+    port, and path. By using some of the C library function such as strchr(), strncpy(),strtok(), and logical loops with 
+    some if-statements to check conditions that will allows us to parse the string. Once the arguments are isolated the information
+    is stored on variables. Then, the next step is the creation of the socket and check if there are errors after its creation. 
+    Then check some special case which will be discussed in detail in Error handling section. After checking those cases, the program
+    proceeds to gather the information from the arguments to establish a connection with the server by using the connect() function.
+
+    Once the connection is establish, the program will now depending on the option specified by the user proceed to formulate a HTTP 
+    request and saved the request on temp variable. Then, it proceeds to send the request by using the send() function. After sending
+    the request, the program starts reading the content. To do that we have to account to the options provided by the program. The one where
+    the user only wants the HTTP header will simply printf() in the terminal as for the one that wants the content, should be fwrite() in a output.dat.
+    To manage these case, an if statement is implemented. For the case where we had to get the content, the program first once recv() and store the data
+    in a buffer that's equal to 8192 which is the maximum size of a HTTP header. Then it look for the end of the header and extract the content length
+    to keep track of the bytes received. Because not all the servers close the connection for us, the program must handle the situation by exiting the loop
+    as soon as all the bytes are received or when the server closes the connection. Lastly, the file output and the socket must be close.
+=============================================================================================================
+Usage:
+   To run the program use the Makefile provided in this directory. To simply compile the code use use the following
+   line and paste in your command line.
+   ``` 
+       make
+   ```
+   That will compile the main.c code that will be located in src directory and add the object 'myweb.c' into the bin 
+   directory. Before we can run the program make sure to change to directory to the bin folder, you can use the 'cd' command. 
+   Now to execute the program you will have to provide the program command-line arguments. You will need to provide the hostname 
+   (website name),IPv4 address ,and the path of the content you want to download. Here is an example on how to run the program.
+   ``` 
+      ./myweb www.example.com 93.184.216.34/index.html
+   ```
+   After the execution you should see a output.dat file in the bin folder. That file has content of the path requested. 
+   By default the port is set 80 but if you wish to specify the port you can use the following option.
+   ``` 
+      ./myweb www.example.com 93.184.216.34:80/index.html 
+   ```
+   Lastly if you only wish to get the HTTP header you can do this by adding this option to the execution parameters.
+   ``` 
+      ./myweb www.example.com 93.184.216.34:80/index.html -h
+   ```
+   **Please notice that the program can only take three arguments the hostname,ip and port, and the option h.**
+ =============================================================================================================
+Error Handling:
+    This program handles different types of Error checking. For instance, the first type error that it checks for is the argument error.
+    The program will exit if the user type more than five arguments or less than two. In addition, the program will check if the information
+    provided by the user is valid. For example it will check if the IP address is an actual IPv4 address and if the port number is between the 
+    range of ports that support TCP/IP communication. 
+
+    Another types Error checks that are perfomed in this program are the socket errors. This program checks if there are errors with the connection,
+    socket creation, sending the request, and received data. In addition, it also checks if there are error when creating the output.dat file.
+    Finally, the program also checks if the the HTTP content uses chunked encoding, and if it does it exits because this program does not support chunked
+    encoding.
+ =============================================================================================================
+Test:
+    Different test case scenarios were used to verify the output of the program. Here are some of the cases tested:
+
+    Basic case, small html file.
+     1. ./myweb www.example.com 93.184.216.34:80/index.html 
+
+    Long html file, greater than buffer.
+     2.  ./myweb www.softwareqatest.com 216.92.49.183:80/index.html
+
+    For chunked encoding.
+     3. ./myweb www.worldslongestwebsite.com 217.160.0.249:80/index.html
+
+    Incorrect IPv4.
+     4. ./myweb www.softwareqatest.com 216.92.49.256:80/index.html
+
+    Wrong Port provided
+     5. /myweb www.example.com 93.184.216.34:90/index.html 
+
+     More test were perfomed, and for most cases the program succesfully passed these test.
+=============================================================================================================  
+Functionallity:
+    This program should be capable to retrive any non-chunked encoded HTTP content. This program will output of
+    the HTTP request in an output.dat file. If the option -h is added it will printf to the command line. 
+=============================================================================================================    

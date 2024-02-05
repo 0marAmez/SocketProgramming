@@ -1,0 +1,146 @@
+=============================================================================================================
+General Description:
+    This program was written with the purpose of putting in practice socket programming concepts from the CSE156
+    class. This program aims to provide a reliable transmission protocol in which UDP is used to trasnfer all the bytes
+    from a file to the server. In this program we make use of different coding techniques as well as old protocol architectures
+    such like Go-Back-N where most of the protocol is based. 
+=============================================================================================================
+Design:
+    As mentioned in the paragraph from above the program uses some basic C libraries to perfom its task. Following the
+    structure provided from the class slides and the information gathered in the Unix Network Programming Book, we developed this
+    API. Before coding it was needed to understand what the functionality of this server client system, and how Go-Back-N would be implemented.
+    Go-Back-N is a protocol used in computer networks to ensure reliable transmission of data over an unreliable communication channel. It is a 
+    type of sliding window protocol in which a sender sends multiple frames of data to a receiver before waiting for an acknowledgment. Using a window
+    control system I was able to implement a transmission control mechanism. First I defined a structure to define what a packet is. In my structure,
+    there only three fields, the ACK number, SQN number, and the data:
+
+        struct Packet {
+            int seq_num;
+            int ack_num;
+            char data[];
+        };
+    Please, notice that the total size of this structr is 8 bytes. As for the data, the size will change dependingon the amount of bytes read in the file.
+    Once, I defined my structure, I proceeded to developed my protocol mechanism. These are the steps that my client and server follows.
+
+        Client:
+
+            1. Creates a UDP socket. (socket())
+            2. Checks if the server is reachable by sending a packet with sequence number of -1.
+                a) a) Timer is set. (setsockopt())
+                b) If by 30s it does not get a response from the server it exits.
+                c) If reply is received then, it sets a new timeout of 10s for re-transmission.
+            3. Then, it read data that's is less than MTU-Overhead and sends date to the server via the socket. (sendto())
+                a) Adds the new packet created to window vector.
+                b) Once the vector reaches the size of the MTU, it moves to the next step.
+                c) If reading the last bytes of the file attacht a -100 to Packet's ACK.
+            4. Waits for a reply from the server. (recvfrom())
+                a) If timer is greater than 10s, then re-transmission.
+                b) If the ACK received does not match with the sequence sent from the window, the re-transmission.
+                c) If the ACK received matched with the sequence sent from the window, then remove that packet from the vector.
+            5. Exits once the window is empty and not data is left to read.
+            6. Closes the socket.
+
+        Server:
+
+            1. Creates a UDP socket. (socket())
+            2. Binds the socket to a well-known port. (bind())
+            3. Waits for incoming messages.
+            4 Generates Random number to determine whether there is DATA drop or ACK drop.
+                a) If there is no data drop, it receives the data and increments the sequence received.
+                    i. In this process it also checks if the sequence number is -1 because in that packet the file path is also attached
+                    ii. It also checks if the ACK number is equal to -100 because that tells the server that this is the last packet received
+                b) If there is  data drop, it does not received the data.
+            5. Reads the incoming message from the socket (recvfrom()) and stores the information in a vector that ensures that the data gets 
+            in order without repeats, this based on the sequence number.
+            6. Sends the same message back to the client.  (sendto())
+                a) If there is no ACK drop, it send the ACK for the sequence number received.
+                b) If there is an ACK drop, it does not send the ACK.
+                c) If the ACK is -1 then it would send it not matter what.
+            7. Stays on loop awaiting more clients.
+            8. Closes the socket.
+
+    In this simple scheme, we can see the the steps followed to achieve the echo request and reply. For the echo UDP server, all the server just hangs for incoming packets
+    and then it check for some specific packets. For example the packet with sequence -1 is very important because this packet works as the TCP handshake, it is used deliver 
+    the path of the output file, but also check the connectivity between server and client. If the client does not hear from the server after 30s it will timeout. If it gets a reply
+    then the client changes the timer to 10s for the retransmissions. Once that's establish, then the client starts sending sets of packets that match with the window size. The server,
+    will read each of these packets one at a time and because of the dropping mechanism, not all the packets would be received or ACKed. Due to that nature the client uses Go-Back-N mechanisms
+    to ensure the delivery of the data. First, we have the timeout for retransmissions, if after 10s there's no response, then the client resends the whole window. Second, if the ACK received
+    does not match any of the sequence number sent on the window, then it restransmits the whole window. However if does then it would remove the packets that are less than or equal to the ACK
+    sequence received. While all this information, is received by the server, the protocol stores all the received packets on vector in order base on the sequence number, and once a packet with
+    sequence number that's equal -100 it prints the data in the path described by the client.
+=============================================================================================================
+Usage:
+   To run the program use the Makefile provided in this directory. To simply compile the code use use the following
+   line and paste in your command line.
+   ``` 
+       make
+   ```
+   That will compile the myclient.cpp and myserver.cpp code that will be located in src directory and add the object 'myclient' and 'myserver'
+    into the bin directory. Before we can run the program make sure to change to directory to the bin folder, you can use the 'cd' command. 
+   Now to execute the programs you will have to provide the program command-line arguments and two terminals. For ther terminal that will be running 
+   the server you will only required to provide a listening port number and a dropping rate. As for the client you will need to provide the ip address, port number, 
+   mtu size, window size, and the path of the file being sent, and the path of the output file.
+   
+   To start the server to listen at port  9090 with a dropping rate of 10%:
+   ``` 
+     ./myserver 9090 10
+   ```
+
+    To send a test.txt with an MTU of 300 bytes, and window size of 4:
+   ``` 
+     ./myclient 127.0.0.1 9090 300 4 test.txt /file/in/here/output.dat
+   ```
+    ** IMPORATAN NOTE: It is very important that if you send a path to the server, Please make sure that the path string starts with '/'. The format for your path should be the folowing:
+    ``` 
+     ./myclient 127.0.0.1 9090 300 4 test.txt '/'PATH
+   ``` 
+
+   After the execution you should see a output.dat file in the corresponding path. That file will have the content of the sent data. 
+   If by an accidednt you happened to type the incorrect format for the parameters the program will exit with and error message.
+   Please, note that in order for this program to work you will required **TWO TERMINALS**. Lastly, to remove all the binaries, you
+   will have to go to the root directory of this set of files, and simply type:
+
+    ``` 
+     make clean
+   ```
+ =============================================================================================================
+Error Handling:
+    This program handles different types of Error checking. For instance, the first type error that it checks for argument errors.
+    The program will exit if the user type more than five arguments for the client and for the server it will exit if the arguments are not equal.
+    In addition, the program will check if the information provided by the user is valid. For example it will check if the IP address is an actual IPv4 address 
+    and if the port number,window size,drop rate, and  MTU is a valid integer.
+
+
+    Another types Error checks that are perfomed in this program are the socket errors. This program checks if there are errors with the send of information,
+    socket creation, sending the request, and received data. In addition, it also checks if there are error when opening the file for reading and
+    output. Finally, depending on the circumstances the client has timer that counts the second and if the timer goes beyond 30 seconds it will exit. Also,
+    if the restransmission count exceeds five it would also exit. In addition, it the server is unreachable it will exit because the server is off. Finally, if an
+    error happens while creating the directories it will exit as well.
+  
+ =============================================================================================================
+Test:
+    Different test case scenarios were used to verify the output of the program. Here are some of the cases tested:
+
+    
+     1. Basic case, a 2.2 MB text file obtained from the internet.
+        Results: File succesfully reassembled.
+
+     2. A file with zero bytes to ensure that the program will not get broken.
+        Results: Packet received, without problem.
+
+     3. A 500 MB image file obtained from the dd command.
+        Results: File succesfully reassembled.
+
+     4. Sever off and client to send packets.
+        Result: Timeout reache and exit succesfully.
+
+     5. Max retransmissions reached.
+        Result: Timeout reache and exit succesfully.
+
+
+     More test were perfomed, and for most cases the program succesfully passed these test.
+=============================================================================================================  
+Functionallity:
+    This client program should be capable to send any type of file to the server. The sever should be able to reassembled the whole file
+    without any errors and properly.
+=============================================================================================================    

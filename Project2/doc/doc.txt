@@ -1,0 +1,110 @@
+=============================================================================================================
+General Description:
+    This program was written with the purpose of putting in practice socket programming concepts from the CSE156
+    class. This program aims to work like the netcat command where you set a server to listen in a certain port and 
+    the client with a set of parameters it will connect the server through UDP and the server will echo back the packet \
+    sent and the client will assemble the received packet in an output file.
+=============================================================================================================
+Design:
+    As mentioned in the paragraph from above the program uses some basic C libraries to perfom its task. Following the
+    structure provided from the class slides and the information gathered in the Unix Network Programming Book, we developed this
+    API. Before coding it was needed to understand what the functionality of this server client system. An UDP Echo client-server is 
+    a simple network communication system where a client sends a message to a server and the server sends the same message back to 
+    the client. Following the structure we broke the logic for the client and server in the following way:
+    
+        Client:
+
+            1. Creates a UDP socket. (socket())
+            2. Sends a message to the server via the socket. (sendto())
+                a) Timer is set. (setsockopt())
+            3. Waits for a reply from the server. (recvfrom())
+                a) If timer is greater than 60s exit.
+            4. Reads the reply from the socket.
+            5. Writes the packet data into the output file.
+            6. Closes the socket.
+
+        Server:
+
+            1. Creates a UDP socket. (socket())
+            2. Binds the socket to a well-known port. (bind())
+            3. Waits for incoming messages.
+            4. Reads the incoming message from the socket. (recvfrom())
+            5. Sends the same message back to the client.  (sendto())
+            6. Stays on loop awaiting more clients.
+            7. Closes the socket.
+
+    In this simple scheme, we can see the the steps followed to achieve the echo request and reply. For the echo UDP server, all we simpl did was
+    to set the server to listen on a specific port number for incoming packets and returns the same data back to the client. Also, error handling was
+    added to server to prevent faults exit. Once the server was running, we first did some argument validation and then proceeded to implement the client
+    The client simply sends data to the server, waits for the response, and displays the received data in the output file. However, it measures the time for the 
+    packets. If a packet does not get in after 60 seconds the the clients exits because it assumes that the server is off. It would also exit if at some point the
+    server stops sending packets. It would be considered as a packet lost. In addition, the client can only send certain amount data that is set by the MTU 
+    (Maximum Transmission Unit). The client breaks the file up into mtu -byte sized packets. Then it sends those packets to the server. Then it waits until the Server
+    has sent the packet and then it writes the information into the output file. In this case the socket takes care of orddering the packets since it will only grab 
+    the information needed as it comes that all the information that's deliver is obtained in order.
+
+=============================================================================================================
+Usage:
+   To run the program use the Makefile provided in this directory. To simply compile the code use use the following
+   line and paste in your command line.
+   ``` 
+       make
+   ```
+   That will compile the myclient.c and myserver.c code that will be located in src directory and add the object 'myclient' and 'myserver'
+    into the bin directory. Before we can run the program make sure to change to directory to the bin folder, you can use the 'cd' command. 
+   Now to execute the programs you will have to provide the program command-line arguments and two terminals. For ther terminal that will be running 
+   the server you will only required to provide a listening port number. As for the client you will need to provide the ip address, port number, mtu size,
+   the path of the file being sent, and the path of the output file  where the packets will be reassembled.
+   
+   To start the server to listen at port  9090:
+   ``` 
+     ./myserver 9090
+   ```
+
+    To echo the test.img file and save the output in the output.dat file. The MTU size here 512 bytes:
+   ``` 
+     ./myclient 127.0.0.1 9090 512 test.img output.dat
+   ```
+
+   After the execution you should see a output.dat file in the corresponding path. That file has content of the echo data. 
+   If by an accidednt you happened to type the incorrect format for the parameters the program will exit with and error message.
+   Please, note that in order for this program to work you will required **TWO TERMINALS**. Lastly, to remove all the binaries, you
+   will have to go to the root directory of this set of files, and simply type:
+
+    ``` 
+     make clean
+   ```
+ =============================================================================================================
+Error Handling:
+    This program handles different types of Error checking. For instance, the first type error that it checks for argument errors.
+    The program will exit if the user type more than five arguments for the client and for the server it will exit if the arguments are not equal.
+    In addition, the program will check if the information provided by the user is valid. For example it will check if the IP address is an actual IPv4 address 
+    and if the port number and MTU is a valid integer.
+
+
+    Another types Error checks that are perfomed in this program are the socket errors. This program checks if there are errors with the send of information,
+    socket creation, sending the request, and received data. In addition, it also checks if there are error when opening the file for reading and
+    output. Finally, depending on the circumstances the client has timer that counts the second and if the timer goes beyond 60 seconds it will exit because 
+    it packets got lost in process. 
+  
+ =============================================================================================================
+Test:
+    Different test case scenarios were used to verify the output of the program. Here are some of the cases tested:
+
+    
+     1. Basic case, a 2.2 MB text file obtained from the internet.
+
+     2. A file with zero bytes to ensure that the program will not get broken.
+
+     3. A 500 MB image file obtained from the dd command.
+
+     4. netcat was used as well to determine how the server can handle multiple clients simultaneously.
+
+     5. 1 GB image file used from the dd command.
+
+     More test were perfomed, and for most cases the program succesfully passed these test.
+=============================================================================================================  
+Functionallity:
+    This client program should be capable to send any type of file and the server will echo back the information sent by the client
+    back to the client, and the client will save the information in a output file specify by the user.
+=============================================================================================================    

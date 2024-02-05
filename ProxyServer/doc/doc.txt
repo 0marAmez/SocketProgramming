@@ -1,0 +1,140 @@
+=============================================================================================================
+General Description:
+    The objective of this project is to create a proxy HTTP server that can receive HTTP requests from clients and transform them into HTTPS requests as part of 
+    the request process to the web server. Additionally, an access control list can be utilized to filter HTTP requests. The type of client generating the request 
+    is not restricted, whether it's a web browser or the curl command. The proxy process involves the transmission of a plain text HTTP request from the client to the proxy, 
+    which converts it into a HTTPS request and sends it back to the client. The proxy acts as a bridge between the client and server, converting HTTP requests from the client into 
+    HTTPS requests to the server, and vice versa for the response.
+=============================================================================================================
+Design:
+    As mentioned in the paragraph from above the program uses some basic C/C++ libraries to perfom its task. Following the
+    structure provided from the class slides and the information gathered in the Unix Network Programming Book, we developed this
+    API. A proxy server acts as an intermediary between a client and other servers on the internet. When a client requests a resource 
+    (such as a webpage or a file) from a server, the request first goes to the proxy server instead of directly to the target server. 
+    The proxy server then evaluates the request and either forwards it to the target server or serves the requested resource from its cache.
+    In this project, the proxy server needs to support secure communication of HTTP 1.1 with HTTPS. It needs to handle only the GET and HEAD 
+    requests. The proxy was designed to support concurrent requests from multiple web clients. The proxy server handles multiple clients requests 
+    simultaneously by using threads. By using threads, the proxy server can handle multiple client requests concurrently, which can improve performance 
+    and reduce latency for clients. The proxy server needs to be able to handle HTTP requests from various clients such as wget, curl, or browsers. Additionally, 
+    it should be capable of parsing the headers of incoming requests and forwarding them to the destination web servers if permitted by the access control file. 
+    After receiving responses from the destination server, the proxy must send them back to the web client. To control access to certain sites, the access control 
+    file includes a list of restricted domains or IP addresses, which the proxy server must adhere to. This file is saved and maintained as a separate document. 
+    Whenever the proxy server receives a 'Control-C' signal, it should reload the list of restricted sites from the file.
+
+    Here are the basic steps of how a proxy server works:
+
+        1. The client(curl or browser) sends a request to the proxy server for a resource (Just HEAD and GET requests).
+        2. The proxy server receives the request and evaluates it.
+            - Creates a thread for every new connection.
+            - Evaluates the Request, checks if the Request is:
+                * Part of the forbidden sites.
+                * HEAD or GET request.
+                * Has a valid host and IPv4.
+                * If not it returns the corresponding HTTP respond.
+        3. Proxy forwards the request to the target server. sends the requested resource to the proxy server.
+            - Use SSL to change the HTTP request to HTTPS
+            - Send Received Data to client
+            - Check for SIGINT
+        4. The proxy server forwards the resource to the client.
+            - Updates log file
+            - Close connection
+
+     The startConnection functioj that sets up a server to listen for incoming client connections on a specified port. The function takes 
+     in three parameters: an integer port, a string forbidden, and a string logFile. The port parameter is the port number that the server 
+     will listen on. The forbidden parameter is the path to a file that contains a list of forbidden sites. The logFile parameter is the path 
+     to a file where the server's log will be saved. Inside the function, a socket is created using socket(), and the socket is bound to the 
+     server address using bind(). The server then listens for incoming connections using listen(). A loop is started to accept incoming client 
+     connections using accept(). When a client connects, a new thread is created to handle the client's request using emplace_back(). The function 
+     handleClientConnection() is called in each thread, passing in the client socket, log file, and a map containing the forbidden sites. If an update 
+     to the forbidden sites file is required, the function readForbidden() is called to update the forbiddenSites map. When the loop is exited, the server 
+     socket is closed, and the function returns. This function handles a client's HTTP request. It receives a client socket, the name of a log file, and a map 
+     of forbidden sites as parameters. The function starts by receiving data from the client using the recv() function and storing it in a buffer. It then checks 
+     whether the client's HTTP request is a GET or HEAD request by calling the checkRequest() function. If the request is not a GET or HEAD request, it sends a 501 
+     Not Implemented response back to the client and closes the connection. The function then extracts the host and port number from the client's HTTP request and 
+     checks whether the host is part of the forbidden sites by checking the map. If it is, it sends a 403 Forbidden response back to the client, updates the log file, 
+     and closes the connection. If the host is not forbidden, the function checks whether it is an IPv4 address or a domain name by using the inet_pton() function. If 
+     it is a domain name, the function resolves its IP address using the getHostIP() function. After obtaining the IP address, the function calls the bridge() function to 
+     establish a connection to the remote server and forward the client's HTTP request. The response from the remote server is then sent back to the client, and the function 
+     updates the log file with the request and response details. This function is a C++ implementation of a client-side SSL/TLS socket that sends a HTTP request to a server and 
+     receives the response. 
+     
+     It takes as input the IP address and port number of the server, the HTTP request to send, a client socket (used for sending the response back to the client), 
+     cand two output parameters: the length of the HTTP response and the HTTP response itself. The function first creates a TCP socket using the IP address and port number provided and 
+     connects to the server using the socket. Then it initializes the OpenSSL library, creates an SSL context, and creates an SSL object using the context. It sets the SSL object to use 
+     the TCP socket created earlier for communication with the server. The function sends the HTTP request to the server using the SSL_write function and reads the response using SSL_read. 
+     It also extracts the length of the response from the "Content-Length" header in the response. If the response does not contain a "Content-Length" header, it calculates the length of the 
+     response by subtracting the size of the response header from the total bytes received. The function sets a timeout of 5 seconds for reading from the socket using the setsockopt function. 
+     If the read operation takes longer than 5 seconds, the function returns. Once the response is received, the function sends the response back to the client using the client socket and cleans 
+     up the SSL object and context before closing the TCP socket. Note that this function assumes that the HTTP request and response are in ASCII format and that the server uses SSL/TLS for 
+     communication.
+=============================================================================================================
+Usage:
+   To run the program use the Makefile provided in this directory. To simply compile the code use use the following
+   line and paste in your command line.
+   ``` 
+       make
+   ```
+    That will compile the myproxy.cpp code that will be located in src directory and add the object file 'myproxy' into the bin directory. Before we 
+    can run the program make sure to change to directory to the bin folder, you can use the 'cd' command. Now to execute the programs you will have to provide 
+    the program command-line arguments and two terminals. To run the proxy server we have to pass a few arguments. These arguments are the listening port, forbidden 
+    sites file path, and the access log file path.
+   
+   To start the proxy server, we need to run this command:
+   ``` 
+     ./myproxy 9090 forbidden dir/root/logfile
+   ```
+    Notice that the forbidden file should be created before running the proxy server. Use this example to create your forbidden file.
+   ``` 
+        www.bookface.com
+        www.youtube.com
+        www.fakenews.com
+        10.6.6.6
+   ```
+   After the execution you should see a output.dat file in the corresponding path. That file will have the content of the sent data. 
+   If by an accidednt you happened to type the incorrect format for the parameters the program will exit with and error message.
+   Please, note that in order for this program to work you will required the terminal for your client, and more terminals
+   depending on the amount of servers that you have. Lastly, to remove all the binaries, you will have to go to the root directory of this set of files, 
+   and simply type:
+    ``` 
+     make clean
+    ```
+ =============================================================================================================
+Error Handling:
+    This program handles different types of Error checking. For instance, the first type error that it checks for argument errors.
+    The program will exit if the user type more than three arguments for the proxy server it will exit if the arguments are not equal to the amount specified.
+    In addition, the program will check if the information provided by the user is valid.
+
+    Another types Error checks that are perfomed in this program are the socket errors. This program checks if there are errors with the send of information,
+    socket creation, sending the request, and received data. In addition, it also checks if there are error when opening the file for reading and
+    output. In addition, because we don't want to interrupt any of the other threads running on the background instead of exiting the program simply had to end that
+    specific thread instead of sending a killing signal.Finally, depending on the circumstances the client has timer that counts the second and if the timer goes beyond 30 seconds it will exit. Also,
+    if the restransmission count exceeds five it would also exit. In addition, it the server is unreachable it will exit because the server is off. Finally, if an
+    error happens while creating the directories it will exit as well. Please, be aware that since the program runs in threads, each thread will run separately from each
+    other, this means that if one thread exits the program, the other threads will continue until they exit by themselves or until they finish the process.
+  
+ =============================================================================================================
+Test:
+    Different test case scenarios were used to verify the output of the program. Here are some of the cases tested:
+
+    
+     1. Basic case, www.example.com
+        Results: Respond succesfully.
+
+     2. Basic case, www.example.com:80
+        Results: Respond sucessfully with port.
+
+     3. Forbidden file site:
+        Results: 503 Respond received.
+
+     4. Invalid Site like wwwww.examPLe.com.
+        Result: Bad Gateway respond received.
+
+     5. Multiple clients
+        Result: All the clients recived responses.
+
+     More test were perfomed, and for most cases the program succesfully passed these test.
+=============================================================================================================  
+Functionallity:
+    This client program should be capable to send any type of file to the server. The sever should be able to reassembled the whole file
+    without any errors and properly.
+=============================================================================================================    
